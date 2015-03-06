@@ -1,2 +1,5 @@
 all:
-	gcc -std=c99 -I../lib -L../lib -o cat cat.c -lhelpers 
+	gcc -std=c99 -I../lib -L../lib -o cat cat.c -lhelpers
+
+clean:
+	rm -f cat
