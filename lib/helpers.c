@@ -36,9 +36,14 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
 		ssize_t tmp = read_(fd, c, 1);
 		if (tmp == -1)
 			return -1;
-		if (*c == delimiter || tmp == 0)
+
+		if (tmp == 0)
 			return current;
+
 		*((char*)(buf + current)) = *c;
 		current++;
+		
+		if (*c == delimiter)
+			return current;
 	}
 }
