@@ -2,6 +2,23 @@
 #include <stdlib.h>
 #include "helpers.h"
 
+int spawn(const char* file, char* const argv[]) {
+	pid_t child_process = fork();
+	int result;
+	if (child_process == 0) {
+		int exc = execvp(file, argv);
+		if (exc == -1) 
+			return -1;
+	} else if (child_process > 0) {
+		pid_t waiting = waitpid(child_process, &result, 0);
+		if (waiting == -1)
+			return -1;
+		return result;
+	} else {
+		return -1;
+	}
+}
+
 ssize_t read_(int fd, void *buf, size_t count) {
 	ssize_t result = 0;
 	while (1) {
@@ -11,7 +28,7 @@ ssize_t read_(int fd, void *buf, size_t count) {
 		result += tmp;
 		if (result == count || tmp == 0) {
 			return result;
-		}
+		} 
 	}
 }
 
@@ -48,3 +65,4 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
 			return current;
 	}
 }
+
