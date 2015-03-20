@@ -22,13 +22,11 @@ int main() {
 			return 1;
 		}
 
-		if (tmp_read > 0 && buf[tmp_read - 1] == ' ' )
-			tmp_read--;
-
-		if (tmp_read > 0 && i != 1) 
-			buf[tmp_read++] = ' ';
- 
-		reverse(buf, tmp_read);
+		if (buf[tmp_read - 1] == ' ')
+	  	reverse(buf, tmp_read - 1);
+		else
+	  	reverse(buf, tmp_read);
+	
 		tmp_write = write_(STDOUT_FILENO, buf, tmp_read);
 		if (tmp_write == -1) {
 			printf("Problems with writing %lld word.", i);
