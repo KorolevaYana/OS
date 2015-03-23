@@ -1,5 +1,4 @@
 #include <stdio.h>
-
 #include <helpers.h>
 
 void reverse(char *buf, int size) {
@@ -16,7 +15,7 @@ int main() {
 
 	long long i = 1;
 	ssize_t tmp_read, tmp_write;
-	while ((tmp_read = read_until(STDIN_FILENO, buf, 1024, ' ')) != 0) {
+	while ((tmp_read = read_until(STDIN_FILENO, buf, 4100, ' ')) != 0) {
 		if (tmp_read == -1) {
 			printf("Problems with reading %lld word.", i);
 			return 1;
