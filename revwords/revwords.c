@@ -1,5 +1,4 @@
-
-#include <stdio.h>
+include <stdio.h>
 #include <helpers.h>
 void reverse(char *buf, int size) {
 	for (int i = 0; i < size / 2; i++) {
@@ -20,12 +19,12 @@ int main() {
 			return 1;
 		}
 
-		if (buf[tmp_read - 1] == ' ')
-	  	reverse(buf, tmp_read - 1);
+	 	if (buf[tmp_read - 1] == ' ')
+  		reverse(buf, tmp_read - 1);
 		else
 	  	reverse(buf, tmp_read);
 	
-		tmp_write = write_(STDOUT_FILENO, buf, tmp_read);
+   	tmp_write = write_(STDOUT_FILENO, buf, tmp_read);
 		if (tmp_write == -1) {
 			printf("Problems with writing %lld word.", i);
 			return 1;
