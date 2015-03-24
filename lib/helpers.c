@@ -54,12 +54,11 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
 		if (tmp == -1)
 			return -1;
 
-		if (tmp == 0) {
+		if (tmp == 0)
 			return current;
-		}
 
 		*((char*)(buf + current)) = *c;
-		current++;
+		current++;		
 
 		if (*c == delimiter)
 			return current;
