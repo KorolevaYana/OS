@@ -5,6 +5,7 @@ all:
 	cd filter && make clean && make
 	cd lenwords && make clean && make
 	cd bufcat && make clean && make
+	cd simplesh && make clean && make
 
 clean:
 	cd lib && make clean
@@ -13,3 +14,4 @@ clean:
 	cd filter && make clean
 	cd lenwords && make clean	
 	cd bufcat && make clean	
+	cd simplesh && make clean
