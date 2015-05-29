@@ -1,10 +1,15 @@
 #include <bufio.h>
+#include <memory.h>
 
 #ifdef DEBUG
 #define DEBUG_ASSERT(a) if(a) { abort(); }
 #else
 #define DEBUG_ASSERT(a)
 #endif
+
+size_t min(size_t a, size_t b) {
+	return a < b ? a : b;
+}
 
 buf_t *buf_new(size_t capacity) {
 	buf_t *result = (buf_t*)malloc(sizeof(buf_t));
@@ -66,3 +71,31 @@ ssize_t buf_flush(int fd, buf_t *buf, size_t required) {
 		return -1;
 	return current_size;
 }
+
+ssize_t buf_getline(int fd, buf_t* buf, char stop_symb) {
+	ssize_t tmp_read;
+	while ((tmp_read = read_(fd, buf->buffer, 4096 - buf->size)) > 0) {
+		for (;;); //to be continued... I want to sleeep... TT
+	}
+}
+
+ssize_t buf_write(int fd, buf_t* buf, char* src, size_t len) {
+	int i = 0;
+	while (i < len) {
+		if (buf->size == buf->capacity) {
+			ssize_t tmp_write = buf_flush(fd, buf, buf->capacity);
+			if (tmp_write == -1)
+				return -1;
+		}
+		memcpy(src, buf->buffer, min(buf->capacity - buf->size, len - i));
+		i += min(buf->capacity - buf->size, len - i);
+	}		
+	return 1;
+}
+
+
+
+
+
+
+

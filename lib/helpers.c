@@ -1,6 +1,9 @@
+#include "helpers.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include "helpers.h"
+#include <string.h>
+#include <signal.h>
 
 int spawn(const char* file, char* const argv[]) {
 	pid_t child_process = fork();
@@ -65,4 +68,132 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
 			return current;
 	}
 }
+
+execargs_t* new_exec(char* func, char** args) {
+	int args_len = 0;
+	while (args[args_len] != NULL) args_len++;
+	char ** tmp_args = (char**)malloc(sizeof(char*) * args_len + 1);
+	if (tmp_args == NULL) {
+		return NULL;
+	}
+	
+	for (int i = 0; i < args_len; i++) {
+		int j = 0;
+		tmp_args[i] = malloc(sizeof(char) * (strlen(args[i]) + 1));
+		for (int k = 0; k <= strlen(args[i]); k++) {
+			tmp_args[i][k] = args[i][k];
+		}
+	}
+	tmp_args[args_len] = NULL;
+	char* tmp_func = malloc((strlen(func) + 1) * sizeof(char));
+	if (tmp_func == NULL) {
+		free(tmp_args);
+		return NULL;
+	}
+	strcpy(func, tmp_func);
+	execargs_t* tmp = malloc(sizeof(execargs_t));
+	tmp->func = tmp_func;
+	tmp->args = tmp_args;
+	return tmp;
+}
+
+void free_exec(execargs_t* args) {
+	int i = 0;
+	while(args->args[i] != NULL) {
+		free(args->args[i]);
+	}
+	free(args->args);
+	free(args->func);
+}
+
+int exec(execargs_t* args) {
+	return execvp(args->func, args->args);
+}
+
+int runpiped(execargs_t** programs, size_t n) {
+	struct {
+		int fd[2];
+	}	pipes[n - 1];
+
+	pid_t pids[n];
+
+	for (int i = 0; i < n - 1; i++) {
+		int tmp = pipe2(pipes[i].fd, O_CLOEXEC);
+		if (tmp < 0) {
+			printf("Pipe troubles");
+			for (int j = 0; j < i; j++) {
+				close(pipes[j].fd[0]);
+				close(pipes[j].fd[1]);
+			}
+			return 1;
+		}
+	}
+
+	for (int i = 0; i < n; i++) {
+		int tmp_pid = fork();
+		if (tmp_pid == 0) {
+			if (i > 0) {
+				dup2(pipes[i - 1].fd[1], STDIN_FILENO);
+			}
+			if (i < n - 1) {
+				dup2(pipes[i + 1].fd[0], STDOUT_FILENO);
+			}
+		} else if (tmp_pid > 0) {
+			pids[i] = tmp_pid;
+		} else {
+			break;
+		}
+	}
+
+	sigset_t set;
+	sigemptyset(&set);
+	sigaddset(&set, SIGINT);
+	sigaddset(&set, SIGCHLD);
+
+	sigset_t tmp_set;
+	sigprocmask(SIG_BLOCK, &set, &tmp_set);
+
+	siginfo_t info;
+	char flag = 1;
+	int cnt = 0;
+	while(flag) {
+		sigwaitinfo(&set, &info);
+		if (info.si_signo == SIGCHLD) {
+				int res;
+			while ((res = waitpid(-1, 0, WNOHANG)) > 0) {
+			  for (int i = 0; i < n; i++) {
+					if (pids[i] == res) {
+						pids[i] = 0;
+						break;
+					}
+				}
+				cnt++;
+				if (cnt == n) {
+					flag = 0;
+					break;
+				}
+			}
+		} else if (info.si_signo == SIGINT) {
+			break;
+		}
+	}
+
+	for (int i = 0; i < n; i++) {
+		if (pids[i] > 0) {
+			kill(pids[i], SIGKILL);
+			waitpid(pids[i], 0, 0);
+		}
+	}
+	
+
+	sigprocmask(SIG_SETMASK, &tmp_set, 0);
+	return 1;
+}
+
+
+
+
+
+
+
 
