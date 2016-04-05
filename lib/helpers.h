@@ -8,7 +8,6 @@
 #include <sys/wait.h>
 
 typedef struct {
-	char* func;
 	char** args;
 } execargs_t;
 
@@ -19,7 +18,7 @@ ssize_t read_until(int fd, void *buf, size_t count, char delimiter);
 
 int spawn(const char* file, char* const argv[]);
 
-execargs_t* new_exec(char* func, char** args);
+execargs_t* new_exec(char** args);
 void free_exec(execargs_t* args);
 int exec(execargs_t* args);
 int runpiped(execargs_t** programs, size_t n);

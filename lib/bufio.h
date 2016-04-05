@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 typedef struct buf_t {
@@ -14,5 +15,5 @@ size_t buf_size(buf_t* buffer);
 
 ssize_t buf_fill(int fd, buf_t* buf, size_t required);
 ssize_t buf_flush(int fd, buf_t* buf, size_t required);
-ssize_t buf_getline(int fd, buf_t* buf, char stop_symb);
+ssize_t buf_getline(int fd, buf_t* buf, char stop_symb, void* ebuf);
 

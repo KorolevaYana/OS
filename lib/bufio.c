@@ -72,11 +72,29 @@ ssize_t buf_flush(int fd, buf_t *buf, size_t required) {
 	return current_size;
 }
 
-ssize_t buf_getline(int fd, buf_t* buf, char stop_symb) {
+ssize_t buf_getline(int fd, buf_t* buf, char sep, void* ebuf) {
+	ssize_t res = 0;
 	ssize_t tmp_read;
-	while ((tmp_read = read_(fd, buf->buffer, 4096 - buf->size)) > 0) {
-		for (;;); //to be continued... I want to sleeep... TT
+	int sep_pos = 0;
+	if ((tmp_read = buf_fill(fd, buf, buf->size + 1)) < 0) {
+		return -1;
 	}
+	for (int i = 0; i < buf->size; i++) {
+		if (buf->buffer[i] == sep) {
+			sep_pos = i;
+			break;
+		}
+	}
+	if (sep_pos == 0 && buf->size > 0) {
+		buf->buffer = memmove(buf->buffer, buf->buffer + 1, buf->size - 1);
+		buf->size--;
+		return buf_getline(fd, buf, sep, ebuf);
+	}
+	memcpy(ebuf, buf->buffer, sep_pos);
+	memmove(buf->buffer, buf->buffer + sep_pos + 1, buf->size - sep_pos - 1);
+	
+	buf->size -= sep_pos + 1;
+	return sep_pos + 1;
 }
 
 ssize_t buf_write(int fd, buf_t* buf, char* src, size_t len) {

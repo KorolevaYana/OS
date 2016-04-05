@@ -69,10 +69,11 @@ ssize_t read_until(int fd, void * buf, size_t count, char delimiter) {
 	}
 }
 
-execargs_t* new_exec(char* func, char** args) {
+execargs_t* new_exec(char** args) {
 	int args_len = 0;
 	while (args[args_len] != NULL) args_len++;
-	char ** tmp_args = (char**)malloc(sizeof(char*) * args_len + 1);
+
+	char ** tmp_args = (char**)malloc(sizeof(char*) * (args_len + 1));
 	if (tmp_args == NULL) {
 		return NULL;
 	}
@@ -85,14 +86,8 @@ execargs_t* new_exec(char* func, char** args) {
 		}
 	}
 	tmp_args[args_len] = NULL;
-	char* tmp_func = malloc((strlen(func) + 1) * sizeof(char));
-	if (tmp_func == NULL) {
-		free(tmp_args);
-		return NULL;
-	}
-	strcpy(func, tmp_func);
 	execargs_t* tmp = malloc(sizeof(execargs_t));
-	tmp->func = tmp_func;
+
 	tmp->args = tmp_args;
 	return tmp;
 }
@@ -101,13 +96,13 @@ void free_exec(execargs_t* args) {
 	int i = 0;
 	while(args->args[i] != NULL) {
 		free(args->args[i]);
+		i++;
 	}
 	free(args->args);
-	free(args->func);
 }
 
 int exec(execargs_t* args) {
-	return execvp(args->func, args->args);
+	return execvp(args->args[0], args->args);
 }
 
 int runpiped(execargs_t** programs, size_t n) {
@@ -119,8 +114,9 @@ int runpiped(execargs_t** programs, size_t n) {
 
 	for (int i = 0; i < n - 1; i++) {
 		int tmp = pipe2(pipes[i].fd, O_CLOEXEC);
+		printf("%i\n", i);
 		if (tmp < 0) {
-			printf("Pipe troubles");
+			printf("Pipe troubles\n");
 			for (int j = 0; j < i; j++) {
 				close(pipes[j].fd[0]);
 				close(pipes[j].fd[1]);
@@ -130,6 +126,7 @@ int runpiped(execargs_t** programs, size_t n) {
 	}
 
 	for (int i = 0; i < n; i++) {
+		printf("%d\n", i);
 		int tmp_pid = fork();
 		if (tmp_pid == 0) {
 			if (i > 0) {
@@ -138,6 +135,7 @@ int runpiped(execargs_t** programs, size_t n) {
 			if (i < n - 1) {
 				dup2(pipes[i + 1].fd[0], STDOUT_FILENO);
 			}
+			exec(programs[i]);
 		} else if (tmp_pid > 0) {
 			pids[i] = tmp_pid;
 		} else {
@@ -182,6 +180,7 @@ int runpiped(execargs_t** programs, size_t n) {
 		if (pids[i] > 0) {
 			kill(pids[i], SIGKILL);
 			waitpid(pids[i], 0, 0);
+		
 		}
 	}
 	

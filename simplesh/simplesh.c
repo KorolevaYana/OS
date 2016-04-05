@@ -1,15 +1,18 @@
+#include <string.h>
 #include <helpers.h>
 #include <bufio.h>
 #include <errno.h>
 
 int main(int argc, char* argv[]) {
 	ssize_t tmp_get;
+	char buffer[4096];
 
 	buf_t* buf = buf_new(4096);
 
 	while(1) {
+		memset(buffer,0, 4096);
 		write_(STDOUT_FILENO, "$", 1);
-		if ((tmp_get = read_until(STDIN_FILENO, buf, 4096, '\n')) < 0) {
+		if ((tmp_get = buf_getline(STDIN_FILENO, buf, '\n', buffer)) < 0) {
 			if (errno == EINTR) {
 				continue;
 			}
@@ -18,11 +21,11 @@ int main(int argc, char* argv[]) {
 			return 0;
 		}
 
-		buf->buffer[tmp_get] = 0;
+		buffer[tmp_get] = 0;
 
 		int cnt = 0;
 		for (int i = 0; i < tmp_get; i++) {
-			if (buf->buffer[i] == '|') {
+			if (buffer[i] == '|') {
 				cnt++;
 			}
 		}
@@ -33,29 +36,30 @@ int main(int argc, char* argv[]) {
 		int prog_cnt = 0;
 		int args_cnt = 0;
 		for (int i = 0; i < (int)tmp_get; i++) {
-			if (buf->buffer[i] == '|') {
+			if (buffer[i] == '|' || buffer[i] == 0) {
 				int space = last - 1;
 				for (int j = last; j < i; j++) {
-					if (buf->buffer[j] == ' ' && space != j - 1) {
+					if (buffer[j] == ' ' && space != j - 1) {
 						args_cnt++;
 					}
 					space = j;
 				}
-
+		
 				int args_last = last;
-				char* arguments[args_cnt];
+				char* arguments[args_cnt + 1];
 
 				args_cnt = 0;
 				for (int j = last; j <= i; j++) {
-					if (buf->buffer[j] == 0) {
+					if (buffer[j] == 0) {
 						if (args_last != j) {
-							arguments[args_cnt++] = buf->buffer + args_last;
+							arguments[args_cnt++] = buffer + args_last;
 						}
 						args_last = j + 1;
 					}
 				}
-
-				if ((programs[prog_cnt] = new_exec(arguments[0], arguments + 1)) == NULL) {
+				arguments[args_cnt] = NULL;
+				
+				if ((programs[prog_cnt++] = new_exec(arguments)) == NULL) {
 					for (int j = 0; j < prog_cnt; j++) {
 						free_exec(programs[j]);
 					}
