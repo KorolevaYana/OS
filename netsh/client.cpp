@@ -1,8 +1,8 @@
 #include "socket_lib.h"
 
-client::client() {}
+client::client() : state(0) {}
 
-client::client(const my_socket& heart): heart(heart) {}
+client::client(const my_socket& heart): heart(heart), state(0) {}
 
 client::~client() {
 }
@@ -16,10 +16,10 @@ int client::connect_heart() {
 	return 0;
 }
 
-void client::complete_task(my_socket task_arg) {
-	this->heart.complete_task(task_arg);
+int client::complete_task(my_socket &task_arg) {
+	return this->heart.complete_task(task_arg);
 }
 
-my_socket client::get_heart() {
+my_socket& client::get_heart() {
 	return this->heart;
 }

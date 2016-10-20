@@ -2,6 +2,8 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "my_epoll.h"
 #include "read_write_lib.h"

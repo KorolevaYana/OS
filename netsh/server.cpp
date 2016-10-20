@@ -3,7 +3,7 @@
 server::server(){}
 
 server::server(const my_socket& heart, int max_connected,
-		std::function<int(my_socket)> set_task): 
+		std::function<int(my_socket&)> set_task): 
 	heart(heart), max_connected(max_connected) {
 	this->set_task = set_task;
 }
@@ -19,12 +19,12 @@ int server::bind_heart() {
 		return 1;
 	}
 	int r = listen(this->heart.fd, this->max_connected);
-	fprintf (stderr, "listen (fd = %d) = %d\n", this->heart.fd, r);
+//	fprintf (stderr, "listen (fd = %d) = %d\n", this->heart.fd, r);
 	return 0;
 }
 
 client server::accept_heart() {
-	my_socket tmp;
+	my_socket tmp(this->heart.get_epoll());
 	int addr_len = sizeof(tmp.addr);
   tmp.fd = accept(this->heart.fd, (sockaddr*)&tmp.addr, (socklen_t*)&addr_len);
 	if (tmp.fd < 0) {
@@ -36,6 +36,6 @@ client server::accept_heart() {
 	return client(tmp);
 }
 
-my_socket server::get_heart() {
+my_socket& server::get_heart() {
 	return heart;
 }

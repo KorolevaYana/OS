@@ -9,24 +9,23 @@ int main(int argc, char** argv) {
 	my_daemon lol(argv[1]);
 	int pid1 = fork();
 	if (pid1 == 0) {
-		FILE* f = fopen("/tmp/netsh.pid", "w");
 		int pid = setsid();
 		if (pid < 0)
 			return -1;
-		fprintf(f, "%d", pid);
 		int a[2];
 		pipe2(a, 0);
 		int pid2 = fork();
 		if (pid2 == 0) {
-
 			lol.run();
 		} else if (pid2 == -1) {
 			printf("Fork error.\n");
 			return -1;
 		} else {
+		  FILE* f = fopen("/tmp/netsh.pid", "w");
+			fprintf(f, "%d", pid2);
+			fclose(f);
 			exit(0);
 		}
-		fclose(f);
 	} else if (pid1 == -1) {
 		printf("Fork error.\n");
 		return -1;
