@@ -80,25 +80,29 @@ int my_epoll::add_fd(my_fd item) {
 	return 0; 
 }
 
-int my_epoll::delete_client(client item) {
-//  printf ("[debug] close socket: %d\n", item.get_heart ().get_fd ());
-	if (epoll_ctl(this->fd, EPOLL_CTL_DEL, item.get_heart().get_fd(), 0) == -1) {
-		printf("Can't delete client (%d from %d). %m\n", item.get_heart().get_fd(), this->fd);
-		return 1;
-	}
-	client_sockets.erase(item.get_heart().get_fd());
-	close(item.get_heart().get_fd());
-	return 0;
-}
+int my_epoll::delete_client(my_socket* item) {
+  printf("pipes: %d, %d", item->pipe_in, item->pipe_out);
+  if (item->pipe_out != -1) {
+    printf("[debug] close fd: %d\n", item->pipe_out);
+    if (epoll_ctl(this->fd, EPOLL_CTL_DEL, item->pipe_out, 0) == -1) {
+	  	printf("Can't delete fd. %m\n");
+  		return 1;
+	  }
+  	fds.erase(item->pipe_out);
+    close(item->pipe_out);
+  }
 
-int my_epoll::delete_fd(my_fd item) {
-	if (epoll_ctl(this->fd, EPOLL_CTL_DEL, item.get_fd(), 0) == -1) {
-		printf("Can't delete fd. %m\n");
+  if (item->pipe_in != -1) {
+    close(item->pipe_in);
+  }
+  
+  printf ("[debug] close socket: %d\n", item->get_fd ());
+	if (epoll_ctl(this->fd, EPOLL_CTL_DEL, item->get_fd(), 0) == -1) {
+		printf("Can't delete client (%d from %d). %m\n", item->get_fd(), this->fd);
 		return 1;
 	}
-	fds.erase(item.get_fd());
-	close(item.get_fd());
-//  printf ("[debug] closed fd: %d\n", item.get_fd ());
+  close(item->get_fd());
+	client_sockets.erase(item->get_fd());
 	return 0;
 }
 
@@ -149,7 +153,7 @@ void my_epoll::run() {
             tmp.state = 1;
             int res = tmp.complete_task(tmp.get_heart());
             if (res == 2) {
-              if (delete_client(tmp)) {
+              if (delete_client(&(tmp.get_heart()))) {
                 return;
               }
             }
@@ -159,14 +163,12 @@ void my_epoll::run() {
 //            fprintf (stderr, "[r=%d] buffer = (%lu) '%s'\n", r, buffer.length (), buffer.c_str ());
             writing(tmp.get_heart().pipe_in, buffer);
           }
+          printf("EPOLLIN %d. pipein: %d, pipe_out: %d", tmp.get_heart().get_fd(), tmp.get_heart().pipe_in, tmp.get_heart().pipe_out);
         }        
         
-       /* if (flag & EPOLLRDHUP) {
-          print ("TODO: ask about EPOLLRDHUP.n\n");
-        }*/
         if (flag & EPOLLHUP) {  
 	  			printf("Disconnected.\n");
-  				if (delete_client(tmp)) {
+  				if (delete_client(&(tmp.get_heart()))) {
 					  return;
 					}
         } 
@@ -177,14 +179,14 @@ void my_epoll::run() {
           tmp.complete_task(tmp);
         }
 
+        if (flag & EPOLLRDHUP) {
+          fprintf(stderr, "EPOLLRDHUP: fd = %d\n", tmp.get_fd());
+        }
+
         if ((flag & EPOLLHUP)) {
-          my_socket &tmp_socket = *tmp.get_from();
+          fprintf(stderr, "EPOLLHUP: fd = %d\n", tmp.get_fd());
 //          fprintf (stderr, "pipe in close: %d\n", tmp_socket.pipe_in);
-          close(tmp_socket.pipe_in);
-          if (delete_client(*tmp.get_from())) {
-            return;
-          }
-          if (delete_fd(tmp)) {
+          if (delete_client(tmp.get_from())) {
             return;
           }
         }

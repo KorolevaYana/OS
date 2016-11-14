@@ -12,8 +12,8 @@ int main(int argc, char** argv) {
 		int pid = setsid();
 		if (pid < 0)
 			return -1;
-		int a[2];
-		pipe2(a, 0);
+//		int a[2];
+//		pipe2(a, 0);
 		int pid2 = fork();
 		if (pid2 == 0) {
 			lol.run();

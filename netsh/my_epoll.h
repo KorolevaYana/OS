@@ -28,7 +28,7 @@ public:
   int add_fd(my_fd item);
 
   int delete_fd(my_fd tmp);
-	int delete_client(client tmp);
+	int delete_client(my_socket* tmp);
 	void run();
 	void set_magic_const(int val);
 };

@@ -77,6 +77,7 @@ void execute(string &cur_buf, int nl, my_socket& tmp) {
       }
       argvv[prog[i].snd.size() + 1] = 0;
       execvp(prog[i].first.c_str(), argvv);
+      waitpid(-1, NULL, WNOHANG);
       perror ("execvp");
       exit (1);
     }
@@ -94,7 +95,7 @@ void execute(string &cur_buf, int nl, my_socket& tmp) {
 void my_daemon::run() {
 	my_epoll just_epoll;
 	
-	my_socket meow("127.0.0.1", port, [](my_socket smth) {
+	my_socket meow("127.0.0.1", port, [](my_socket &smth) {
     printf("Accepted!\n");
     return 0;
   }, &just_epoll);
@@ -128,10 +129,12 @@ void my_daemon::run() {
         my_epoll* epoll = tmp.get_epoll();
         my_fd tmp_fd(tmp.pipe_out, [](my_fd& fd) {
           string buffer = "";
+        //  fprintf(stderr, "Writing from: %d, to: %d \n", fd.get_fd(), fd.get_from()->get_fd());
           if (fd_reading_n(fd.get_fd(), buffer) == -1) {
             return 1;
           } else {
             if (writing(fd.get_from()->get_fd(), buffer) == -1) {
+              printf("-1\n");
               return 1;
             }
           }

@@ -9,6 +9,7 @@
 struct client;
 struct server;
 struct my_fd;
+struct my_socket;
 
 #include "my_epoll.h"
 
@@ -78,7 +79,6 @@ public:
 	int connect_heart();	
 	int complete_task(my_socket &task_arg);
 	my_socket& get_heart();
-
 };
 
 

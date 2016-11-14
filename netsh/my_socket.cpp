@@ -1,17 +1,17 @@
 #include "socket_lib.h"
 
-my_socket::my_socket(): additional(""), reading_flag(true){}
+my_socket::my_socket(): additional(""), reading_flag(true), pipe_in(-1), pipe_out(-1){}
 
-my_socket::my_socket(my_epoll* epoll): epoll(epoll), additional(""), reading_flag(true) {}
+my_socket::my_socket(my_epoll* epoll): epoll(epoll), additional(""), reading_flag(true), pipe_in(-1), pipe_out(-1){}
 
-my_socket::my_socket(const my_socket& other) : epoll(other.epoll), additional(""), reading_flag(other.reading_flag) {
+my_socket::my_socket(const my_socket& other) : epoll(other.epoll), additional(""), reading_flag(other.reading_flag), pipe_in(-1), pipe_out(-1){
 	this->fd = other.fd;
 	this->addr = other.addr;
 	this->task = other.task;
 }
 
 my_socket::my_socket(const char* ip, int port,
-		std::function<int(my_socket&)> task, my_epoll* epoll) : epoll(epoll), additional(""), reading_flag(true) {
+		std::function<int(my_socket&)> task, my_epoll* epoll) : epoll(epoll), additional(""), reading_flag(true), pipe_in(-1), pipe_out(-1) {
   this->fd = socket(AF_INET, SOCK_STREAM, 0);
   if (this->fd == -1) {
 		printf("Problems with creating socket\n");
