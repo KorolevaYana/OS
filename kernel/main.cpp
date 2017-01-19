@@ -1,10 +1,15 @@
 #include <string>
+#include <cstring>
 #include <vector>
 #include <utility>
 #include <functional>
-#include <iostream>
+#include <tuple>
+#include <sys/mman.h>
+
+#define PAGE_SIZE 1024
 
 using namespace std;
+
 
 struct process;
 
@@ -12,8 +17,9 @@ struct arg {
   union val_variant {
     string* s;
     int i;
-    pair<int, int>* p; 
+    pair<int, int>* p;
     pair<function<process(int)>, int>* p_fi; 
+    void* v;
   } val;
 
   enum arg_types {
@@ -21,7 +27,8 @@ struct arg {
     INT,
     P_INT,
     NOTHING,
-    P_FUNC_INT
+    P_FUNC_INT,
+    VOID
   } arg_t;
 
   arg(string* val, arg_types arg_t) {
@@ -43,6 +50,11 @@ struct arg {
     this->val.p_fi = val;
     this->arg_t = arg_t;
   }
+
+  arg(void* val, arg_types arg_t) {
+    this->val.v = val;
+    this->arg_t = arg_t;
+  }
 };
 
 enum signal {
@@ -50,7 +62,9 @@ enum signal {
   WRITE_TAG,
   EXIT_TAG,
   FORK_TAG,
-  EXEC_TAG
+  EXEC_TAG,
+  MMAP_TAG,
+  UNMAP_TAG
 };
 
 struct process {
@@ -74,14 +88,14 @@ struct closure {
   }
 };
 
-vector<pair<function<process(int)>, int>> processes;
+vector<tuple<function<process(int)>, int, vector<tuple<void*, int, int>>>> processes;
 void kernel(function<process(int)> name, int arg, vector<string>& std_in) {
   int cur_std_in = 0;
-  processes.push_back(make_pair(name, arg));
+  processes.push_back(make_tuple(name, arg, vector<tuple<void*, int, int>>()));
   while(!processes.empty()) {
-    pair<function<process(int)>, int> tmp = processes[processes.size() - 1];
+    auto tmp = processes[processes.size() - 1];
     processes.pop_back();
-    process current = tmp.first(tmp.second);
+    process current = (get<0>(tmp))(get<1>(tmp));
     switch (current.name) {
       case READ_TAG:
         if (current.args.arg_t != arg::STRING) {
@@ -92,10 +106,10 @@ void kernel(function<process(int)> name, int arg, vector<string>& std_in) {
     //      fprintf (stderr, "[debug] s = %p, '%s'\n", current.args.val.s, std_in[cur_std_in].c_str ());
           (*current.args.val.s) = std_in[cur_std_in]; 
   //        fprintf (stderr, "[debug] s = %p\n", current.args.val.s);
-          processes.push_back(make_pair(current.cont, 1)); 
+          processes.push_back(make_tuple(current.cont, 1, get<2>(tmp))); 
           cur_std_in++;
         } else {
-          processes.push_back(make_pair(current.cont, 0));
+          processes.push_back(make_tuple(current.cont, 0, get<2>(tmp)));
         }
         break;
       case WRITE_TAG:
@@ -103,8 +117,8 @@ void kernel(function<process(int)> name, int arg, vector<string>& std_in) {
           printf("Wrong syscall args: WRITE_TAG expected STRING.\n");
           break;
         }
-        fprintf (stderr, "[debug] write s = %p\n", current.args.val.s);
-        processes.push_back(make_pair(current.cont, printf("%s", (*current.args.val.s).c_str())));
+//        fprintf (stderr, "[debug] write s = %p\n", current.args.val.s);
+        processes.push_back(make_tuple(current.cont, printf("%s", (*current.args.val.s).c_str()), get<2>(tmp)));
         break;
       case EXIT_TAG:
         if (current.args.arg_t != arg::INT) {
@@ -114,23 +128,64 @@ void kernel(function<process(int)> name, int arg, vector<string>& std_in) {
         printf("Exit code: %d\n", current.args.val.i);
         break;
       case FORK_TAG:
-        if (current.args.arg_t != arg::NOTHING) {
-          printf("Wrong syscall args: FORK_TAG expected NOTHING.\n");
+        {
+          if (current.args.arg_t != arg::NOTHING) {
+              printf("Wrong syscall args: FORK_TAG expected NOTHING.\n");
+            break;
+          }
+          vector<tuple<void*, int, int>> par_mem = get<2>(tmp);
+          auto ch_mem = par_mem;
+          for (int i = 0; i < (int)par_mem.size(); i++) {
+            auto p = par_mem[i];
+            if (get<1>(p)) { //anonymous
+              void* tmp_p = mmap(NULL, get<2>(p) * PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+              memcpy(tmp_p, get<0>(p), get<2>(p) * PAGE_SIZE);
+              ch_mem[i] = make_tuple(tmp_p, get<1>(p), get<2>(p));
+            } // else -- shared
+          }
+          processes.push_back(make_tuple(current.cont, 1, par_mem));
+          processes.push_back(make_tuple(current.cont, 0, ch_mem));
           break;
         }
-        cerr << "lalpar\n";
-        processes.push_back(make_pair(current.cont, 1));
-        cerr << "lalch\n";
-        processes.push_back(make_pair(current.cont, 0));
-        cerr << "lal\n";
-        break;
       case EXEC_TAG:
         if (current.args.arg_t != arg::P_FUNC_INT) {
           printf("Wrong syscall args: EXEC_TAG expected PAIR_FUNC_INT.\n");
           break;
         }
-        processes.push_back(*current.args.val.p_fi);
+        processes.push_back(make_tuple(current.args.val.p_fi->first, current.args.val.p_fi->second, get<2>(tmp)));
         break;
+      case MMAP_TAG:
+        {
+          if (current.args.arg_t != arg::P_INT) {
+            printf("Wrong syscall args: MMAP_TAG expected P_INT.\n");
+            break;
+          }
+          void* tmp_p = mmap(NULL, current.args.val.p->first * PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+          if (tmp_p != (void*)-1) {
+            auto tmp_v = get<2>(tmp);
+            tmp_v.push_back(make_tuple(tmp_p, current.args.val.p->second, current.args.val.p->first));
+            processes.push_back(make_tuple(current.cont, 1, tmp_v));
+          }
+          else 
+            processes.push_back(make_tuple(current.cont, 0, get<2>(tmp)));
+          break;
+        }
+      case UNMAP_TAG:
+        {
+          if (current.args.arg_t != arg::VOID) {
+            printf("Wrong syscall args: UNMAP_TAG expected VOID.\n");
+            break;
+          }
+          auto tmp_v = get<2>(tmp);
+          for (auto i = tmp_v.begin(); i != tmp_v.end(); i++) {
+            if (get<0>(*i) == current.args.val.v) {
+              tmp_v.erase(i);
+              break;
+            }
+          }
+          processes.push_back(make_tuple(current.cont, 1, tmp_v));
+          break;
+        }
       default:
         printf("Wrong syscall!");
     }
@@ -168,12 +223,17 @@ process exec_printer(int a) {
   return process(EXEC_TAG, arg(p, arg::P_FUNC_INT), exit_func);
 }
 
+process mapping(int a) {
+  pair<int, int> *p = new pair<int, int>(4, 1);
+  return process(MMAP_TAG, arg(p, arg::P_INT), exit_func);        
+}
 
 int main() {
   vector<string> std_in;
   std_in.push_back("Hello\n");
   kernel(exec_printer, 0, std_in);
 //  kernel(printer_maker("Hello2\n"), 0, std_in);
+//  kernel(mapping, 0, std_in);
   return 0;
 }
 
